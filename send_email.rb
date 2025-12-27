@@ -15,8 +15,10 @@ SMTP_CONFIG = {
   enable_starttls_auto: true,
   # WARNING: 'none' is insecure. This is for local Proton Bridge.
   # For other SMTP servers, use :peer or :client_once
-  openssl_verify_mode:  'none'
-}
+  openssl_verify_mode:  'none',
+  open_timeout:         120, # Increase to 2 minutes
+  read_timeout:         120  # Increase to 2 minutes
+  }
 
 DOC_LINK      = "https://bit.ly/3YaNO35"
 PHOTO_FILE    = "header_photo.jpg"
@@ -50,14 +52,15 @@ def read_recipients(file_path)
   recipients
 end
 
-def build_html_body(first_name, fragment_path, photo_cid, doc_link)
+def build_html_body(first_name, fragment_path, photo_ref, doc_link, local_preview = false)
   inner_html = File.read(fragment_path)
+  photo_src = local_preview ? photo_ref : "cid:#{photo_ref}"
   <<~HTML
     <html>
       <body style="font-family: sans-serif; line-height: 1.5; color: #333; max-width: 600px;">
         <p>Hi #{first_name},</p>
         <div style="text-align: center; margin-bottom: 20px;">
-          <img src="cid:#{photo_cid}" style="max-width: 100%; border-radius: 8px;">
+          <img src="#{photo_src}" style="max-width: 100%; border-radius: 8px;">
         </div>
         #{inner_html}
         <div style="margin-top: 30px; padding: 15px; background-color: #f9f9f9; border-left: 4px solid #6d4aff;">
@@ -75,9 +78,15 @@ def send_email(person, subject, from_email)
       to      person[:email]
       from    from_email
       subject subject
+
+      # Add the photo and get the generated CID
       add_file PHOTO_FILE
       inline_cid = attachments[PHOTO_FILE].cid
+
+      # Add the PDF as a normal attachment
       add_file PDF_FILE
+
+      # Build the body, passing the generated CID
       html_part do
         content_type 'text/html; charset=UTF-8'
         body build_html_body(person[:first_name], HTML_FRAGMENT, inline_cid, DOC_LINK)
@@ -85,15 +94,16 @@ def send_email(person, subject, from_email)
     end
     puts "Email sent to #{person[:first_name]} #{person[:last_name]}."
     return true
-  rescue Net::SMTPUnknownError, Net::OpenTimeout, Errno::ECONNREFUSED => e
+  rescue Net::ReadTimeout, Net::SMTPUnknownError, Net::OpenTimeout, Errno::ECONNREFUSED => e
     puts "Failed to send email to #{person[:email]}: #{e.message}"
-    puts "SUGGESTION: Is Proton Bridge running and accessible at #{SMTP_CONFIG[:address]}:#{SMTP_CONFIG[:port]}?"
+    puts "SUGGESTION: If Bridge is syncing, try increasing read_timeout in SMTP_CONFIG."
     return false
   rescue => e
-    puts "Failed to send email to #{person[:email]}: #{e.message}"
+    puts "An unexpected error occurred: #{e.message}"
     return false
   end
 end
+
 
 
 # --- MENU SYSTEM ---
@@ -108,7 +118,7 @@ case choice
 when "1"
   # Generate a local file (Note: CID images won't show in local browsers)
   # To make the preview work, we'll just use the photo file path directly.
-  preview_html = build_html_body("TestName", HTML_FRAGMENT, PHOTO_FILE, DOC_LINK)
+  preview_html = build_html_body("TestName", HTML_FRAGMENT, PHOTO_FILE, DOC_LINK, true)
   File.write("preview_full.html", preview_html)
   puts "Done! Open 'preview_full.html' in your browser."
 
@@ -124,12 +134,12 @@ when "3"
   print "Are you absolutely sure? (type 'YES' to broadcast): "
   confirm = gets.chomp
 
-  if confirm == "YES"
+  if confirm.upcase == "YES"
     recipients.each do |person|
       next unless person[:email]
-      puts "Broadcasting to #{person[:first_name]} #{person[:last_name]}..."
+      puts "Broadcasting to #{person[:first_name]} #{person[:last_name]} at #{person[:email]}."
       send_email(person, "Blyth Family Christmas Letter 2025", "mjblyth@proton.me")
-      sleep 2
+      sleep 2 # Throttle to avoid triggering suspicion
     end
     puts "Broadcast complete."
   else
