@@ -52,9 +52,11 @@ def read_recipients(file_path)
   recipients
 end
 
-def build_html_body(first_name, fragment_path, photo_ref, doc_link, local_preview = false)
+def build_html_body(first_name, fragment_path, photo_url, doc_link, local_preview = false)
   inner_html = File.read(fragment_path)
-  photo_src = local_preview ? photo_ref : "cid:#{photo_ref}"
+  # The 'photo_url' is either the direct file path for local preview,
+  # or the full 'cid:...' URL for the email.
+  photo_src = photo_url
   <<~HTML
     <html>
       <body style="font-family: sans-serif; line-height: 1.5; color: #333; max-width: 600px;">
@@ -74,30 +76,45 @@ end
 
 def send_email(person, subject, from_email)
   begin
-    Mail.deliver do
-      to      person[:email]
-      from    from_email
-      subject subject
+    mail = Mail.new
+    mail.to = person[:email]
+    mail.from = from_email
+    mail.subject = subject
 
-      # Add the photo and get the generated CID
-      add_file PHOTO_FILE
-      inline_cid = attachments[PHOTO_FILE].cid
-
-      # Add the PDF as a normal attachment
-      add_file PDF_FILE
-
-      # Build the body, passing the generated CID
-      html_part do
-        content_type 'text/html; charset=UTF-8'
-        body build_html_body(person[:first_name], HTML_FRAGMENT, inline_cid, DOC_LINK)
-      end
+    mail.text_part do
+      body "This is a multipart email in MIME format."
     end
+
+    mail.html_part do
+      content_type 'text/html; charset=UTF-8'
+      # The body will be replaced later
+    end
+
+    # Add the inline image with a simple Content-ID
+    mail.attachments.inline[PHOTO_FILE] = File.read(PHOTO_FILE, mode: 'rb')
+    
+    # Set a simple Content-ID manually
+    cid = 'header_photo'
+    mail.attachments[PHOTO_FILE].content_id = "<#{cid}>"
+    
+    # Build the HTML body using the simple CID (without angle brackets)
+    mail.html_part.body = build_html_body(
+      person[:first_name], 
+      HTML_FRAGMENT, 
+      "cid:#{cid}",  # This is the key change - use the simple CID
+      DOC_LINK
+    )
+
+    # Add the PDF attachment
+    mail.add_file(filename: PDF_FILE, content: File.read(PDF_FILE, mode: 'rb'))
+
+    File.write("raw_email.eml", mail.to_s.gsub("\r\n", "\n"))
+    puts "DEBUG: Raw email source saved to raw_email.eml"
+
+    mail.deliver!
+
     puts "Email sent to #{person[:first_name]} #{person[:last_name]}."
     return true
-  rescue Net::ReadTimeout, Net::SMTPUnknownError, Net::OpenTimeout, Errno::ECONNREFUSED => e
-    puts "Failed to send email to #{person[:email]}: #{e.message}"
-    puts "SUGGESTION: If Bridge is syncing, try increasing read_timeout in SMTP_CONFIG."
-    return false
   rescue => e
     puts "An unexpected error occurred: #{e.message}"
     return false
