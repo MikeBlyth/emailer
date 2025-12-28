@@ -25,6 +25,7 @@ PHOTO_FILE    = "header_photo.jpg"
 PDF_FILE      = "Christmas Letter 2025.pdf"
 HTML_FRAGMENT = "message_fragment.html"
 EXCEL_FILE    = "C:\\Users\\Mike\\Dropbox\\Current Work\\Email News Contact List Addresses.xlsx"
+#EXCEL_FILE    = "C:\\Users\\Mike\\Dropbox\\Current Work\\temp.xlsx"
 TEST_EMAIL    = ENV['TEST_EMAIL'] || 'mjblyth@proton.me' # Configurable test email
 
 Mail.defaults { delivery_method :smtp, SMTP_CONFIG }
@@ -108,19 +109,17 @@ def send_email(person, subject, from_email)
     # Add the PDF attachment
     mail.add_file(filename: PDF_FILE, content: File.read(PDF_FILE, mode: 'rb'))
 
-    File.write("raw_email.eml", mail.to_s.gsub("\r\n", "\n"))
-    puts "DEBUG: Raw email source saved to raw_email.eml"
+    # File.write("raw_email.eml", mail.to_s.gsub("\r\n", "\n"))
 
     mail.deliver!
 
-    puts "Email sent to #{person[:first_name]} #{person[:last_name]}."
+    puts "Email sent to #{person[:first_name]} #{person[:last_name]} at #{person[:email]}"
     return true
   rescue => e
     puts "An unexpected error occurred: #{e.message}"
     return false
   end
 end
-
 
 
 # --- MENU SYSTEM ---
@@ -154,7 +153,7 @@ when "3"
   if confirm.upcase == "YES"
     recipients.each do |person|
       next unless person[:email]
-      puts "Broadcasting to #{person[:first_name]} #{person[:last_name]} at #{person[:email]}."
+#      puts "Sending to #{person[:first_name]} #{person[:last_name]} at #{person[:email]}."
       send_email(person, "Blyth Family Christmas Letter 2025", "mjblyth@proton.me")
       sleep 2 # Throttle to avoid triggering suspicion
     end

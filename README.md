@@ -56,7 +56,7 @@ ruby send_email.rb
 You will be presented with a menu:
 
 1.  **Generate local HTML file for review:** Creates `preview_full.html` in the current directory. This allows you to inspect the HTML structure. *Note: Inline images (CID attachments) will likely not display correctly in a local browser preview; they are designed for email clients.*
-2.  **Send test email to YOURSELF only:** Sends a test email to `mjblyth@proton.me` (this can be changed in the script).
+2.  **Send test email to YOURSELF only:** Sends a test email to the address configured in `TEST_EMAIL` in your `.env` file (defaults to `mjblyth@proton.me`).
 3.  **Send to WHOLE list:** Broadcasts the email to all recipients listed in the Excel file. This option requires a confirmation prompt.
 
 ## Configuration Details
@@ -69,14 +69,17 @@ The following constants in `send_email.rb` can be modified:
 *   `PDF_FILE`: Path to the PDF attachment.
 *   `HTML_FRAGMENT`: Path to the HTML message body fragment.
 *   `EXCEL_FILE`: Path to the Excel contact list.
+*   `TEST_EMAIL`: The email address used for testing (can be set in `.env`).
 
 ## How HTML is Constructed
 
-The `build_html_body` function (not explicitly shown in the provided `send_email.rb` but implied by its use) is responsible for assembling the final HTML. It likely:
+The `build_html_body` function is responsible for assembling the final HTML for your email. It performs the following actions:
 
 1.  Reads the content of `message_fragment.html`.
-2.  Replaces `{{NAME}}` (or similar) placeholders with the recipient's first name.
-3.  Inserts the `inline_cid` for the header photo.
+2.  Prepends a personalized salutation (e.g., "Hi [Recipient's First Name],").
+3.  Embeds the header photo. The `photo_url` argument it receives is either:
+    *   A direct file path (e.g., `header_photo.jpg`) when generating a local preview.
+    *   A `cid:` URL (e.g., `cid:header_photo`) when sending an email, linking to the inline attachment.
 4.  Includes the `DOC_LINK`.
 
-Ensure your `message_fragment.html` is structured to correctly use these injected values.
+Ensure your `message_fragment.html` is structured to correctly integrate with this prepended content and embedded image.
