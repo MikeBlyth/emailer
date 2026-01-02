@@ -41,6 +41,7 @@ def read_recipients(file_path)
     sheet.simple_rows.each_with_index do |row, index|
       next if index == 0 || row.empty?
       recipients << {
+        status:     row["A"],
         email:      row["B"],
         first_name: row["C"],
         last_name:  row["D"]
@@ -126,8 +127,10 @@ end
 puts "--- Newsletter Manager ---"
 puts "1. Generate local HTML file for review"
 puts "2. Send test email to #{TEST_EMAIL}"
-puts "3. Send to WHOLE list"
-print "Choose an option (1-3): "
+puts "3. Send to ALL valid recipients (default and new)"
+puts "4. List recipients (don't send)"
+puts "5. Send to NEW recipients only"
+print "Choose an option (1-5): "
 choice = gets.chomp
 
 case choice
@@ -146,20 +149,60 @@ when "2"
 when "3"
   recipients = read_recipients(EXCEL_FILE)
 
-  puts "\nWARNING: You are about to send to #{recipients.length} people."
+  # Filter out 'x'
+  send_list = recipients.filter { |p| p[:status]&.downcase != 'x' }
+
+  puts "\nWARNING: You are about to send to #{send_list.length} people (all valid recipients)."
   print "Are you absolutely sure? (type 'YES' to broadcast): "
   confirm = gets.chomp
 
   if confirm.upcase == "YES"
-    recipients.each do |person|
+    send_list.each do |person|
       next unless person[:email]
-#      puts "Sending to #{person[:first_name]} #{person[:last_name]} at #{person[:email]}."
       send_email(person, "Blyth Family Christmas Letter 2025", "mjblyth@proton.me")
-      sleep 2 # Throttle to avoid triggering suspicion
+      sleep 2 # Throttle
     end
     puts "Broadcast complete."
   else
     puts "Broadcast cancelled."
+  end
+
+when "4"
+  recipients = read_recipients(EXCEL_FILE)
+
+  # Filter out 'x'
+  valid_recipients = recipients.filter { |p| p[:status]&.downcase != 'x' }
+
+  puts "\n--- Listing #{valid_recipients.length} Valid Recipients ---"
+  valid_recipients.each do |person|
+    status = person[:status].nil? || person[:status].empty? ? 'default' : person[:status]
+    puts "- #{person[:first_name]} #{person[:last_name]} (#{person[:email]}) [Status: #{status}]"
+  end
+  puts "--- End of List ---"
+
+when "5"
+  recipients = read_recipients(EXCEL_FILE)
+
+  # Filter for 'new'
+  send_list = recipients.filter { |p| p[:status]&.downcase == 'new' }
+
+  if send_list.empty?
+    puts "No 'new' recipients found."
+  else
+    puts "\nWARNING: You are about to send to #{send_list.length} 'new' recipients."
+    print "Are you absolutely sure? (type 'YES' to broadcast): "
+    confirm = gets.chomp
+
+    if confirm.upcase == "YES"
+      send_list.each do |person|
+        next unless person[:email]
+        send_email(person, "Blyth Family Christmas Letter 2025", "mjblyth@proton.me")
+        sleep 2 # Throttle
+      end
+      puts "Broadcast complete."
+    else
+      puts "Broadcast cancelled."
+    end
   end
 
 else

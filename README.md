@@ -42,8 +42,15 @@ This Ruby script is designed to send personalized HTML emails with attachments t
     Ensure the following files are in the same directory as the script, or update their paths in `send_email.rb`:
     *   `header_photo.jpg`: The image to be embedded in the email.
     *   `Christmas Letter 2025.pdf`: The PDF document to be attached.
-    *   `message_fragment.html`: An HTML snippet that forms the body of your email. This file should contain placeholders for dynamic content (e.g., `{{NAME}}`).
-    *   `C:\Users\Mike\Dropbox\Current Work\Email News Contact List Addresses.xlsx`: Your Excel file containing recipient data. The script expects email in column `B`, first name in column `C`, and last name in column `D` of the first sheet.
+    *   `message_fragment.html`: An HTML snippet that forms the body of your email.
+    *   `C:\Users\Mike\Dropbox\Current Work\Email News Contact List Addresses.xlsx`: Your Excel file containing recipient data. The script expects the following format in the first sheet:
+        *   **Column A (Status):** Controls who receives an email.
+            *   `x`: Excludes the recipient from any email send-out.
+            *   `new`: Marks the recipient as "new".
+            *   (blank): Default recipient.
+        *   **Column B (Email):** The recipient's email address.
+        *   **Column C (First Name):** The recipient's first name.
+        *   **Column D (Last Name):** The recipient's last name.
 
 ## Usage
 
@@ -55,9 +62,11 @@ ruby send_email.rb
 
 You will be presented with a menu:
 
-1.  **Generate local HTML file for review:** Creates `preview_full.html` in the current directory. This allows you to inspect the HTML structure. *Note: Inline images (CID attachments) will likely not display correctly in a local browser preview; they are designed for email clients.*
-2.  **Send test email to YOURSELF only:** Sends a test email to the address configured in `TEST_EMAIL` in your `.env` file (defaults to `mjblyth@proton.me`).
-3.  **Send to WHOLE list:** Broadcasts the email to all recipients listed in the Excel file. This option requires a confirmation prompt.
+1.  **Generate local HTML file for review:** Creates `preview_full.html` for local inspection.
+2.  **Send test email to ...:** Sends a single test email.
+3.  **Send to ALL valid recipients (default and new):** Sends emails to everyone in the Excel list **except** those marked with 'x' in Column A. Requires confirmation.
+4.  **List recipients (don't send):** Displays a list of all recipients who would receive an email (i.e., not marked with 'x'), along with their status. No emails are sent.
+5.  **Send to NEW recipients only:** Sends emails only to recipients marked with 'new' in Column A. Requires confirmation.
 
 ## Configuration Details
 

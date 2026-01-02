@@ -1,5 +1,6 @@
 .env
 *.pdf
+*.jpg
 temp*
 *.log
 preview*
